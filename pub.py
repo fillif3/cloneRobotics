@@ -21,9 +21,8 @@ def main():
     # create a socket object
     #time_increment = 1/float(sys.argv[2]) #TODO check
     time_increment=1
-    time_increment_file=max(5,time_increment)
+    time_increment_file=max(1,time_increment)
     client=None
-    address=None
     folder_name = os.path.dirname(__file__)+'/logs'
     pathlib.Path(folder_name).mkdir(parents=True, exist_ok=True)
 
@@ -37,45 +36,41 @@ def main():
         except FileNotFoundError:
             print('error') #TODO fix
     logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+
+
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+        # bind the socket to the host and port
+
+        #server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.settimeout(time_increment)
+        server.bind(socket_path)
+        server.listen()
+        logger.info('Server started working!\n')
+        file_curr_time=time.time()
+        while True:
+
+            #try: (conn, (ip, port)) = tcpServer.accept()
+            if client is  None:
+                try: (client, _) = server.accept()
+                except socket.timeout: pass
+            curr_time = time.time()
 
 
 
-    with file_log:
-        try:
-            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
-                # bind the socket to the host and port
 
-                #server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                server.settimeout(time_increment)
-                server.bind(socket_path)
-                server.listen()
-                file_log.write('Server started working!\n')
+            measure_arr = get_measurements() #TODO implement correct function
+            msg = pickle.dumps(measure_arr)
+            #if 'client' in locals(): send_msg(client,address,msg)
+            if client is not None: client.sendall(msg) #TODO check returned msfg
+            if (file_curr_time+time_increment_file)<time.time():
+                logger.info("Connection:"+str(client is not None)+";MSG:"+str(measure_arr)+'Time:'+str(time.time())+'\n')
                 file_curr_time=time.time()
-                while True:
 
-                    #try: (conn, (ip, port)) = tcpServer.accept()
-                    if client is  None:
-                        try: (client, address) = server.accept()
-                        except socket.timeout: pass
-                    curr_time = time.time()
+            if client is not None: time.sleep(time_increment+(curr_time-time.time())/1000)
 
 
 
-
-                    measure_arr = get_measurements() #TODO implement correct function
-                    msg = pickle.dumps(measure_arr)
-                    #if 'client' in locals(): send_msg(client,address,msg)
-                    if client is not None: client.sendall(msg) #TODO check returned msfg
-                    if (file_curr_time+file_curr_time)<time.time():
-                        file_log.write("Address:"+str(address)+";MSG:"+str(measure_arr)+'Time:'+str(time.time())+'\n')
-                        file_curr_time=time.time()
-
-                    if client is not None: time.sleep(time_increment+(curr_time-time.time())/1000)
-
-
-            
-        except Exception as e:
-            print(f"Error: {e}")
 
 
 

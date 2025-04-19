@@ -1,14 +1,14 @@
 import socket
+import pickle
 
 
 def run_client():
     # create a socket object
-    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 
-    server_ip = "127.0.0.1"  # replace with the server's IP address
-    server_port = 8002  # replace with the server's port number
+    socket_path = '/tmp/my_socket' #TODO sys.argv
     # establish connection with server
-    client.connect((server_ip, server_port))
+    client.connect(socket_path)
 
     try:
         while True:
@@ -17,13 +17,14 @@ def run_client():
             #client.sendall('')
 
             # receive message from the server
-            response = client.recv(1024)
+            msg = client.recv(1024)
+            measure_arr=pickle.loads(msg) #Mention unsafe
             print('----------')	
-            print(response)
+            print(measure_arr)
 
             # if server sent us "closed" in the payload, we break out of
             # the loop and close our socket
-            if response.lower() == "closed":
+            if msg.lower() == "closed":
                 break
 
             #print(f"Received: {response}")

@@ -1,38 +1,109 @@
 import socket
 import os
-import threading
+import select
 import sys
 import time
+import pickle
+import pathlib # Path
+import logging
 
 
 
-def run_server():
-    server_ip = "127.0.0.1"  # server hostname or IP address
-    port = 8002  # server port number
+
+def main():
+    socket_path = '/tmp/my_socket' #TODO check
+    #socket_path = sys.argv[1]
+    try:
+        os.unlink(socket_path)
+    except OSError:
+        if os.path.exists(socket_path):
+            raise
     # create a socket object
-    
-    try:
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # bind the socket to the host and port
-        server.bind((server_ip, port))
-        # listen for incoming connections
-        server.listen()
-        print(f"Listening on {server_ip}:{port}")
+    #time_increment = 1/float(sys.argv[2]) #TODO check
+    time_increment=1
+    time_increment_file=max(5,time_increment)
+    client=None
+    address=None
+    folder_name = os.path.dirname(__file__)+'/logs'
+    pathlib.Path(folder_name).mkdir(parents=True, exist_ok=True)
 
-        while True:
-            # accept a client connection
-            client_socket, addr = server.accept()
-            print(f"Accepted connection from {addr[0]}:{addr[1]}")
-            # start a new thread to handle the client
-            thread = threading.Thread(target=handle_client, args=(client_socket, addr,))
-            thread.start()
-    except Exception as e:
-        print(f"Error: {e}")
-    finally:
-        server.close()
+    while True:
+        file_name=folder_name+'/'+time.strftime("%Y-%m-%d %H:%M:%S",time.gmtime(time.time()))+'.txt'
+        try:
+            logging.basicConfig(filename=file_name,
+                                format='%(asctime)s %(message)s',
+                                filemode='x')
+            break
+        except FileNotFoundError:
+            print('error') #TODO fix
+    logger = logging.getLogger()
+
+
+
+    with file_log:
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
+                # bind the socket to the host and port
+
+                #server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                server.settimeout(time_increment)
+                server.bind(socket_path)
+                server.listen()
+                file_log.write('Server started working!\n')
+                file_curr_time=time.time()
+                while True:
+
+                    #try: (conn, (ip, port)) = tcpServer.accept()
+                    if client is  None:
+                        try: (client, address) = server.accept()
+                        except socket.timeout: pass
+                    curr_time = time.time()
+
+
+
+
+                    measure_arr = get_measurements() #TODO implement correct function
+                    msg = pickle.dumps(measure_arr)
+                    #if 'client' in locals(): send_msg(client,address,msg)
+                    if client is not None: client.sendall(msg) #TODO check returned msfg
+                    if (file_curr_time+file_curr_time)<time.time():
+                        file_log.write("Address:"+str(address)+";MSG:"+str(measure_arr)+'Time:'+str(time.time())+'\n')
+                        file_curr_time=time.time()
+
+                    if client is not None: time.sleep(time_increment+(curr_time-time.time())/1000)
+
+
+            
+        except Exception as e:
+            print(f"Error: {e}")
+
+
+
         
-def handle_client(client_socket, addr):
+#def send_msg(client,address,msg):
+#    for key in clients_dict:
+#        clients_dict[key].send(msg)
+                
+                
+            
+    
+    
+def get_measurements():
+    return [1,2,3,4,5,6,7,8,9,0]
+    
+def pop_client(keys_to_):
+    pass
+        
+def add_client(clients_dict, client_socket, addr):
+    clients_dict[addr]=client_socket
+
+
+
+
+
+
     try:
+        # print(f"Accepted connection from {addr[0]}:{addr[1]}")
         i=1
         while True:
             # receive and print client messages
@@ -53,4 +124,5 @@ def handle_client(client_socket, addr):
         client_socket.close()
         print(f"Connection to client ({addr[0]}:{addr[1]}) closed")
         
-run_server()
+if __name__ == "__main__":
+    main()

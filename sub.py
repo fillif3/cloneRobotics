@@ -1,5 +1,7 @@
 import socket
 import pickle
+import direction
+
 
 
 def run_client():
@@ -9,7 +11,8 @@ def run_client():
     socket_path = '/tmp/my_socket' #TODO sys.argv
     # establish connection with server
     client.connect(socket_path)
-
+    msg_time = None
+    euler_angles=None
     try:
         while True:
             # get input message from user and send it to the server
@@ -19,8 +22,14 @@ def run_client():
             # receive message from the server
             msg = client.recv(1024)
             measure_arr=pickle.loads(msg) #Mention unsafe
-            print('----------')	
-            print(measure_arr)
+            if euler_angles is None:
+                euler_angles,euler_angles_variance=direction.initialize_euler_angles(measure_arr)
+            else:
+                euler_angles,euler_angles_variance=direction.update_euler_angles(measure_arr,euler_angles,euler_angles_variance,msg_time)
+            quanternion=direction.euler_to_quanternion(euler_angles)
+
+            print(euler_angles)
+            print(quanternion)
 
             # if server sent us "closed" in the payload, we break out of
             # the loop and close our socket

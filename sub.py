@@ -26,6 +26,7 @@ def run_client():
                 euler_angles,euler_angles_variance=direction.initialize_euler_angles(measure_arr)
             else:
                 euler_angles,euler_angles_variance=direction.update_euler_angles(measure_arr,euler_angles,euler_angles_variance,msg_time)
+            msg_time=msg['timestampGyro']# We only use timestamp of Gyro because it is the only sensor, which return rates
             quanternion=direction.euler_to_quanternion(euler_angles)
 
             print(euler_angles)

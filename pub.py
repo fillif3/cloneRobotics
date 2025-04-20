@@ -6,6 +6,7 @@ import time
 import pickle
 import pathlib # Path
 import logging
+import sensors
 
 
 
@@ -59,7 +60,7 @@ def main():
 
 
 
-            measure_arr = get_measurements() #TODO implement correct function
+            measure_arr = sensors.get_measurements() #TODO implement correct function
             msg = pickle.dumps(measure_arr)
             #if 'client' in locals(): send_msg(client,address,msg)
             if client is not None: client.sendall(msg) #TODO check returned msfg
@@ -83,8 +84,7 @@ def main():
             
     
     
-def get_measurements():
-    return [1,2,3,4,5,6,7,8,9,0]
+
     
 def pop_client(keys_to_):
     pass

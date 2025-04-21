@@ -1,7 +1,6 @@
 import numpy as np
 from copy import copy
-#I choose random values. These values should be found in documentation or in an exepriment. If it is not possible to
-# find them, another filter (e.g. UFIR) should be used
+
 MODEL_VARIANCE_MATRIX=np.diag([5,0.1]) #System variance aka Q matrix in Kalman filter
 SENSOR_VARIANCE_MATRIX=np.diag([10,1]) #Sensor variance aka R matrix in Kalman filter
 
@@ -25,8 +24,8 @@ def euler_to_quanternion(euler_angles,system):
              np.sin(euler_angles['roll'] / 2) * np.sin(euler_angles['pitch']  / 2) * np.cos(euler_angles['yaw']  / 2)
         qw = np.cos(euler_angles['roll'] / 2) * np.cos(euler_angles['pitch']  / 2) * np.cos(euler_angles['yaw']  / 2) + \
              np.sin(euler_angles['roll'] / 2) * np.sin(euler_angles['pitch']  / 2) * np.sin(euler_angles['yaw']  / 2)
-    elif system=='YXZ': #I was unable to find transfomration from this system to quanternion, so I used rotation matrix
-        # as an intermidate step
+    elif system=='YXZ': #I was unable to find transformation from this system to quaternion, so I used rotation matrix
+        # as an intermediate step
         # source: https://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
         Rx = np.array([
             [1, 0, 0],
@@ -147,19 +146,8 @@ def update_euler_angles(measure_arr,angles_old,rates_old,variance_old,last_time_
     normalize_euler_angles(angles_updated)
     return angles_updated, angles_rates_updated,angles_variance_updated,new_rot_system
 
-    #We assume that measurments are uncolarted so we can do this sequnatially
-    # https://math.stackexchange.com/questions/4011815/kalman-filtering-processing-all-measurements-together-vs-processing-them-sequen
-    # OTherwise, we would need to implment them toghether
-
-
-    # A simple example how kalman filter works for 1-dimensional stats
-    # I worked under assumption each angle is measured but it is not true. In real-world, UKF should be used. Moreover,
-    # in such a case, varaince woulf be coupled so it would be required to use matricies instead of scalar values. It would
-    # also be required to use matrcies if model was avaiable.
-
 def get_rates_euler_angles_from_gyroscope(measure_arr,angles):
     # https://liqul.github.io/blog/assets/rotation.pdf
-    # Note: Integration could be  improved with Runge-Kutta 4 instead of Euler method
     """
     This function gets rates of euler angles from gyroscope
     :param measure_arr: dict with raw data (keys: 'xGyro', 'yGyro', 'zGyro') 
@@ -176,14 +164,6 @@ def get_rates_euler_angles_from_gyroscope(measure_arr,angles):
                             np.cos(angles['roll']) / np.cos(angles['pitch'])}
     return direction_rate
 
-    #time_diff=(measure_arr['timestampGyro']-last_time_step)/1000
-    #euler_angles={'roll':roll_rate*time_diff+angles['roll'],'pitch':pitch_rate*time_diff+angles['pitch'],\
-    #                         'yaw':yaw_rate*time_diff+angles['yaw']}
-
-
-    # It would be better to treat system as each angle would be described by 2 states: angle and rate. It would let us
-    # use infomration that even though we know rate, its integration does not neecraily tell us correctly angle
-
 def kalman_euler_angles(angles,rates,angles_old,rates_old,variance_old,time_diff):
     """
     :param angles: Rotation according to measured data (keys: 'roll', 'pitch', 'yaw')
@@ -197,20 +177,27 @@ def kalman_euler_angles(angles,rates,angles_old,rates_old,variance_old,time_diff
          updated_rates: Newly estimated rates of angles (stored in dict with keys: 'roll', 'pitch', 'yaw')
          updated_var: Newly estimated covariance matrices (stored in dict with keys: 'roll', 'pitch', 'yaw')
     """
+    # Initialization
     updated_angles={}
     updated_rates={}
     updated_var={}
-    transition_matrix=np.matrix([[1,time_diff],[0,1]])
+    transition_matrix=np.matrix([[1,time_diff],[0,1]]) #Simple model of a discrete integrator
+
+    #Iterate for each euler angle and Kalman filter
     for key in ('roll', 'pitch', 'yaw'):
+        # Predict state (state is a 2-element vector of 1 euler angle and its rate)
         state=np.array([angles_old[key],rates_old[key]])
         state=np.matmul(transition_matrix,state)
+        # Update covariance matrix
         updated_var[key]=matmul3(transition_matrix,variance_old[key],np.transpose(transition_matrix))+MODEL_VARIANCE_MATRIX
 
+        # Update state based on prediction
         kalman_gain = np.matmul(updated_var[key],np.linalg.inv(updated_var[key]+SENSOR_VARIANCE_MATRIX))
         state=state+np.transpose(np.matmul(kalman_gain,np.transpose(np.array([angles[key],rates[key]])-state)))
         updated_var[key]=matmul3((np.identity(2)-kalman_gain),updated_var[key],np.transpose(np.identity(2)-kalman_gain)) \
                          + matmul3(kalman_gain,SENSOR_VARIANCE_MATRIX,np.transpose(kalman_gain))
 
+        # Save predicted state as a dict
         updated_angles[key]=state[0,0]
         updated_rates[key]=state[0,1]
 
@@ -241,6 +228,7 @@ def eul_2_rot(angles,system):
     :param system: 'XYZ' or 'YXZ'
     :return: Rotation matrix (Numpy matrix)
     """
+    # Compute rotation matrix around each axis
     rot_x=np.matrix([[1,0,0],
                      [0,np.cos(angles['roll']),-np.sin(angles['roll'])],
                      [0,np.sin(angles['roll']),np.cos(angles['roll'])]])
@@ -250,17 +238,13 @@ def eul_2_rot(angles,system):
     rot_z=np.matrix([[np.cos(angles['yaw']),-np.sin(angles['yaw']),0],
                      [np.sin(angles['yaw']),np.cos(angles['yaw']),0],
                      [0,0,1]])
+    # Find final rotation matrix by using specified squander
     if system=='XYZ': return matmul3(rot_x,rot_y,rot_z)
     elif system=='YXZ': return matmul3(rot_y,rot_x,rot_z)
     else: raise NotImplementedError
 
 def rot_2_euler(rot,system):
     # https://eecs.qmul.ac.uk/~gslabaugh/publications/euler.pdf
-    # Check special cases I work under assumptios there are
-    # Gimbal lock will not happen (under aumptions sensors work correctly) because XYZ gimbal lock happens when
-    # abs(Gpx)>>abs(Gpy) or it is opposite for YXZ
-    # Software requires unit tests
-    # Software can be rewriiten with ojbects in mind if many exentsions are required
     """
     This function transforms rotation matrix to euler angles  according to chosen sequence
     :param rot: Rotation matrix (Numpy matrix)
@@ -271,7 +255,7 @@ def rot_2_euler(rot,system):
     if system=='XYZ':
         if abs(rot[0,2])==1: raise NotImplementedError
         else:
-            #There are two ways to get a solution becaucse there are two pairs of euler anges that creates the same rotations
+            #There are two ways to get a solution because there are two pairs of euler angles that creates the same rotations
             # Here, I will choose one randomly
             angles['pitch']=np.arcsin(-rot[0,2])
             angles['roll'] = np.arctan2(-rot[1, 2] / np.cos(angles['pitch']), rot[2, 2] / np.cos(angles['pitch']))
@@ -288,7 +272,6 @@ def rot_2_euler(rot,system):
     return angles
 
 def change_euler_order(angles,system):
-    # We work with -pi/2 to pi/2 because of sensors anyway
     """
     This function changes the order of euler angles (from 'XYZ' to 'YXZ' ot from 'YXZ' to 'XYZ')
     :param angles: Euler angles saved as dict with keys: 'roll', 'pitch', 'yaw'

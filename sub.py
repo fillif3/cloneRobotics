@@ -24,10 +24,10 @@ def run_client():
         msg = client.recv(1024)
         measure_arr=pickle.loads(msg) #Mention unsafe
         if euler_angles is None:
-            euler_angles,angles_rates,euler_angles_variance,current_system=direction.initialize_euler_angles(measure_arr,current_system)
+            euler_angles,angles_rates,euler_angles_variance,current_system=direction.initialize_euler_angles(measure_arr)
         else:
-            euler_angles,angles_rates,euler_angles_variance,current_system=direction.update_euler_angles(measure_arr,euler_angles,\
-                                                                                          angles_rates, euler_angles_variance,msg_time)
+            euler_angles,angles_rates,euler_angles_variance,current_system=direction.update_euler_angles(measure_arr,euler_angles,
+                                                                        angles_rates, euler_angles_variance,msg_time,current_system)
         msg_time=measure_arr['timestampGyro']# We only use timestamp of Gyro because it is the only sensor, which return rates
         quanternion=direction.euler_to_quanternion(euler_angles,current_system)
         # We should add unit tests

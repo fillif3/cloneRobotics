@@ -88,7 +88,7 @@ def initialize_euler_angles(measure_arr):
     euler_angles= {'roll': (get_euler_angles_from_accelerometer(measure_arr,rot_system))[0],
                    'pitch': (get_euler_angles_from_accelerometer(measure_arr,rot_system))[1],
                    'yaw': get_yaw_from_magnetometer(measure_arr,rot_system)}
-    if   abs(abs(euler_angles['pitch']-np.pi/2))<0.01:
+    if  abs(abs(euler_angles['pitch']-np.pi/2))<0.17: #almost 10 deg
         rot_system = 'YXZ'
         euler_angles = {'roll': (get_euler_angles_from_accelerometer(measure_arr, rot_system))[0],
                         'pitch': (get_euler_angles_from_accelerometer(measure_arr, rot_system))[1],
@@ -100,10 +100,11 @@ def initialize_euler_angles(measure_arr):
     angles_rates=get_euler_angles_from_gyroscope(measure_arr,euler_angles)
     return euler_angles,angles_rates,variance,rot_system
 
-def update_euler_angles(measure_arr,angles_old,rates_old,varaince_old,last_time_step):
-    angles,rates,variance=initialize_euler_angles(measure_arr)
+def update_euler_angles(measure_arr,angles_old,rates_old,varaince_old,last_time_step,rot_system):
+    angles,rates,variance,new_rot_system=initialize_euler_angles(measure_arr)
+    if not rot_system==new_rot_system: angles_old=change_euler_order(angles_old,new_rot_system)[0]
     time_diff = (measure_arr['timestampGyro'] - last_time_step) / 1000
-    angles_updated,angles_rates_updated, angles_variance_updated = kalman_euler_angles(angles,rates,variance,\
+    angles_updated,angles_rates_updated, angles_variance_updated = kalman_euler_angles(angles,rates,variance,
                                                                 angles_old,rates_old,varaince_old,time_diff)
     normalize_euler_angles(angles_updated)
     return angles_updated, angles_rates_updated,angles_variance_updated
@@ -114,7 +115,7 @@ def update_euler_angles(measure_arr,angles_old,rates_old,varaince_old,last_time_
 
 
     # A simple example how kalman filter works for 1-dimensional stats
-    # I worked under assumption the each angle is measured but it is not true. In real-world, UKF should be used. Moreover,
+    # I worked under assumption each angle is measured but it is not true. In real-world, UKF should be used. Moreover,
     # in such a case, varaince woulf be coupled so it would be required to use matricies instead of scalar values. It would
     # also be required to use matrcies if model was avaiable.
 
@@ -165,3 +166,51 @@ def matmul3(a,b,c):
 def mdeg_to_rad(mdeg):
     return mdeg*np.pi/180/1000
 
+def eul_2_rot(angles,system):
+    rot_x=np.matrix([[1,0,0],
+                     [0,np.cos(angles['roll']),-np.sin(angles['roll'])],
+                     [0,np.sin(angles['roll']),np.cos(angles['roll'])]])
+    rot_y=np.matrix([[np.cos(angles['pitch']),0,-np.sin(angles['pitch'])],
+                     [0,1,0],
+                     [-np.sin(angles['pitch']), 0, np.cos(angles['pitch'])]])
+    rot_z=np.matrix([[np.cos(angles['yaw']),-np.sin(angles['yaw']),0],
+                     [np.sin(angles['yaw']),np.cos(angles['yaw']),0],
+                     [0,0,1]])
+    if system=='XYZ': return matmul3(rot_x,rot_y,rot_z)
+    elif system=='YXZ': return matmul3(rot_y,rot_x,rot_z)
+    else: raise NotImplementedError
+
+def rot_2_euler(rot,system):
+    # https://eecs.qmul.ac.uk/~gslabaugh/publications/euler.pdf
+    # Check special cases I work under assumptios there are
+    # Gimbal lock will not happen (under aumptions sensors work correctly) because XYZ gimbal lock happens when
+    # abs(Gpx)>>abs(Gpy) or it is opposite for YXZ
+    # Software requires unit tests
+    # Software can be rewriiten with ojbects in mind if many exentsions are required
+    angles={}
+    if system=='XYZ':
+        if abs(rot[0,2])==1: raise NotImplementedError
+        else:
+            #There are two ways to get a solution becaucse there are two pairs of euler anges that creates the same rotations
+            # Here, I will choose one randomly
+            angles['pitch']=np.arcsin(-rot[0,2])
+            angles['roll'] = np.arctan2(-rot[1, 2] / np.cos(angles['pitch']), rot[2, 2] / np.cos(angles['pitch']))
+            angles['yaw']=np.arctan2(-rot[0,1]/np.cos(angles['pitch']),rot[0,0]/np.cos(angles['pitch']))
+
+    elif system=='YXZ':
+        if abs(rot[1,2])==1: raise NotImplementedError
+        else:
+            angles['roll']=np.arcsin(rot[1,2])
+            angles['pitch']=np.arctan2(-rot[0, 2] / np.cos(angles['roll']), rot[2, 2] / np.cos(angles['roll']))
+            angles['yaw'] = np.arctan2(-rot[1, 0] / np.cos(angles['roll']), rot[1, 1] / np.cos(angles['roll']))
+
+    else: raise NotImplementedError
+
+def change_euler_order(angles,system):
+    # We work with -pi/2 to pi/2 because of sensors anyway
+    rot = eul_2_rot(angles,system)
+    if system=='XYZ': new_system='YXZ'
+    elif system=='YXZ': new_system='XYZ'
+    else: raise NotImplementedError
+    new_angles=rot_2_euler(rot,new_system)
+    return new_angles, new_system

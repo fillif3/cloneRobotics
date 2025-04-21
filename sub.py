@@ -31,6 +31,8 @@ def run_client():
         msg_time=measure_arr['timestampGyro']# We only use timestamp of Gyro because it is the only sensor, which return rates
         quanternion=direction.euler_to_quanternion(euler_angles,current_system)
         # We should add unit tests
+        print('-------------')
+        print(current_system)
         print(euler_angles)
         print(quanternion)
 

@@ -87,12 +87,12 @@ def initialize_euler_angles(measure_arr):
     rot_system = 'XYZ'
     euler_angles= {'roll': (get_euler_angles_from_accelerometer(measure_arr,rot_system))[0],
                    'pitch': (get_euler_angles_from_accelerometer(measure_arr,rot_system))[1],
-                   'yaw': get_yaw_from_magnetometer(measure_arr,rot_system)}
-    if  abs(abs(euler_angles['pitch']-np.pi/2))<0.17: #almost 10 deg
+                   'yaw': get_yaw_from_magnetometer(measure_arr)}
+    if  abs(abs(euler_angles['pitch'])-np.pi/2)<0.17: #almost 10 deg
         rot_system = 'YXZ'
         euler_angles = {'roll': (get_euler_angles_from_accelerometer(measure_arr, rot_system))[0],
                         'pitch': (get_euler_angles_from_accelerometer(measure_arr, rot_system))[1],
-                        'yaw': get_yaw_from_magnetometer(measure_arr, rot_system)}
+                        'yaw': get_yaw_from_magnetometer(measure_arr)}
 
 
 
@@ -107,7 +107,7 @@ def update_euler_angles(measure_arr,angles_old,rates_old,varaince_old,last_time_
     angles_updated,angles_rates_updated, angles_variance_updated = kalman_euler_angles(angles,rates,variance,
                                                                 angles_old,rates_old,varaince_old,time_diff)
     normalize_euler_angles(angles_updated)
-    return angles_updated, angles_rates_updated,angles_variance_updated
+    return angles_updated, angles_rates_updated,angles_variance_updated,new_rot_system
 
     #We assume that measurments are uncolarted so we can do this sequnatially
     # https://math.stackexchange.com/questions/4011815/kalman-filtering-processing-all-measurements-together-vs-processing-them-sequen
@@ -205,6 +205,7 @@ def rot_2_euler(rot,system):
             angles['yaw'] = np.arctan2(-rot[1, 0] / np.cos(angles['roll']), rot[1, 1] / np.cos(angles['roll']))
 
     else: raise NotImplementedError
+    return angles
 
 def change_euler_order(angles,system):
     # We work with -pi/2 to pi/2 because of sensors anyway

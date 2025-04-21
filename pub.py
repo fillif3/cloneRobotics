@@ -1,7 +1,7 @@
 import socket
 import os
 import argparse
-#import sys
+import stat
 import time
 import pickle
 import pathlib # Path
@@ -20,6 +20,41 @@ def is_positive_float(element):
         return False
 
 
+def can_use_unix_socket(path: str) -> bool:
+    try:
+        # Must be an absolute path and not contain null bytes
+        if not path.startswith('/') or '\x00' in path:
+            return False
+
+        # Path length limit for UNIX sockets (platform-dependent, 108 is typical on Linux)
+        if len(path.encode()) >= 108:
+            return False
+
+        parent = os.path.dirname(path)
+
+        # Parent directory must exist and be a directory
+        if not os.path.isdir(parent):
+            return False
+
+        # You need write and execute permission on the parent
+        if not os.access(parent, os.W_OK | os.X_OK):
+            return False
+
+        # If the path already exists:
+        if os.path.exists(path):
+            # If it’s already a socket, we might want to allow replacing it
+            mode = os.stat(path).st_mode
+            if stat.S_ISSOCK(mode):
+                return os.access(path, os.W_OK)  # Can we remove/replace it?
+            else:
+                return False  # Some other file exists there
+
+        # All good
+        return True
+
+    except Exception:
+        return False
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -29,22 +64,27 @@ def main():
     'ERROR'->(40), 'CRITICAL'->(50)""")
     parser.add_argument("--frequency-hz", help="Frequency that shows how often will the massages be sent.")
     args = parser.parse_args()
-    if args.socket_path is None:
+    #args.socket_path='/tmp/socket/32132131'
+    if args.socket_path is None: args.socket_path='/tmp/my_socket'
+    if not can_use_unix_socket(args.socket_path):
+        print('The chosen path is not a directory. "/tmp/my_socket" will be used instead')
         args.socket_path='/tmp/my_socket'
-    try:
-        os.unlink(args.socket_path)
-    except PermissionError:
-        raise PermissionError("You do not have permission to use this path. Please, specify different path.")
+
+    try: os.unlink(args.socket_path)
+    except PermissionError: raise PermissionError("You do not have permission to use this path. Please, specify different path.")
     except OSError:
-        raise OSError("The chose path is used be a different software (maybe anther socket). Please, specify different path.")
+        if os.path.exists(args.socket_path):
+            raise OSError("The chose path is used be a different software (maybe anther socket). Please, specify different path.")
     if args.log_level is None:
         args.log_level='INFO'
-    if not args.log_level in ['INFO', 'DEBUG', 'NOTSET', 'ERROR', 'CRITICAL', 'WARNING']:
+    if not args.log_level in ['INFO', 'DEBUG', 'NOTSET', 'ERROR', 'CRITICAL', 'WARNING']: # Current Logger is very simple but it is a good base
+        #More logs could be added in the future depending on the requirments and what we want to test
         print("Invalid log level. Log level set to INFO")
+        args.log_level='INFO'
     if not is_positive_float(args.frequency_hz):
-        print('You have not specified frequency of the specified is not a positive number. Frequency is set to 500 Hz')
+        if args.frequency_hz is not None:
+            print('You have incorrect frequency. Frequency is set to 500 Hz')
         args.frequency_hz=500
-
     #socket_path = sys.argv[1]
 
     # create a socket object
@@ -101,52 +141,5 @@ def main():
 
 
 
-
-
-
-        
-#def send_msg(client,address,msg):
-#    for key in clients_dict:
-#        clients_dict[key].send(msg)
-                
-                
-            
-    
-    
-
-    
-def pop_client(keys_to_):
-    pass
-        
-def add_client(clients_dict, client_socket, addr):
-    clients_dict[addr]=client_socket
-
-
-
-
-
-
-    try:
-        # print(f"Accepted connection from {addr[0]}:{addr[1]}")
-        i=1
-        while True:
-            # receive and print client messages
-            print(i)
-            i=i+1
-            time.sleep(3)
-            #request = client_socket.recv(1024).decode("utf-8")
-            #if request.lower() == "close":
-            #    client_socket.send("closed".encode("utf-8"))
-            #    break
-            #print(f"Received: {request}")
-            # convert and send accept response to the client
-            response = str(i)
-            client_socket.send(response.encode("utf-8"))
-    except Exception as e:
-        print(f"Error when hanlding client: {e}")
-    finally:
-        client_socket.close()
-        print(f"Connection to client ({addr[0]}:{addr[1]}) closed")
-        
 if __name__ == "__main__":
     main()

@@ -1,26 +1,55 @@
 import socket
 import os
-import select
-import sys
+import argparse
+#import sys
 import time
 import pickle
 import pathlib # Path
 import logging
 import sensors
 
+def is_positive_float(element):
+    #If you expect None to be passed:
+    if element is None:
+        return False
+    try:
+        new_element=float(element)
+        if new_element>0: return True
+        else: return False
+    except ValueError:
+        return False
 
 
 
 def main():
-    socket_path = '/tmp/my_socket' #TODO check
-    #socket_path = sys.argv[1]
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--socket-path", help="Path used for communicating between sockets.")
+    parser.add_argument("--log-level", help="""This variable specifies the logging level. The higher level
+    the less logs will be created. Possible values are: 'NOTSET'->(0), 'DEBUG'->(10), 'INFO'->(20), 'WARNING'->(30), 
+    'ERROR'->(40), 'CRITICAL'->(50)""")
+    parser.add_argument("--frequency-hz", help="Frequency that shows how often will the massages be sent.")
+    args = parser.parse_args()
+    if args.socket_path is None:
+        args.socket_path='/tmp/my_socket'
     try:
-        os.unlink(socket_path)
+        os.unlink(args.socket_path)
+    except PermissionError:
+        raise PermissionError("You do not have permission to use this path. Please, specify different path.")
     except OSError:
-        if os.path.exists(socket_path):
-            raise
+        raise OSError("The chose path is used be a different software (maybe anther socket). Please, specify different path.")
+    if args.log_level is None:
+        args.log_level='INFO'
+    if not args.log_level in ['INFO', 'DEBUG', 'NOTSET', 'ERROR', 'CRITICAL', 'WARNING']:
+        print("Invalid log level. Log level set to INFO")
+    if not is_positive_float(args.frequency_hz):
+        print('You have not specified frequency of the specified is not a positive number. Frequency is set to 500 Hz')
+        args.frequency_hz=500
+
+    #socket_path = sys.argv[1]
+
     # create a socket object
     #time_increment = 1/float(sys.argv[2]) #TODO check
+
     time_increment=1
     time_increment_file=max(1,time_increment)
     client=None
@@ -37,7 +66,7 @@ def main():
         except FileNotFoundError:
             print('error') #TODO fix
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(getattr(logging, args.log_level))
 
 
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as server:
@@ -45,7 +74,7 @@ def main():
 
         #server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.settimeout(time_increment)
-        server.bind(socket_path)
+        server.bind(args.socket_path)
         server.listen()
         logger.info('Server started working!\n')
         file_curr_time=time.time()

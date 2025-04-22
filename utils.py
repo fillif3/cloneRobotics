@@ -20,15 +20,15 @@ def get_logger(level,is_server=True):
 
     pathlib.Path(folder_name).mkdir(parents=True, exist_ok=True)
 
-    while True:
+    while True: #Try to find a name for a file. If it exists, another name will be proposed in the next iteration
         file_name = folder_name + '/' + datetime.datetime.utcnow().isoformat(sep=' ', timespec='milliseconds') + '.txt'
         try:
             logging.basicConfig(filename=file_name,
                                 format='%(asctime)s %(message)s',
                                 filemode='x')
             break
-        except FileNotFoundError:
-            print('error')  # TODO fix
+        except FileExistsError:
+            pass
     logger = logging.getLogger()
     logger.setLevel(getattr(logging, level))
     return logger
@@ -37,17 +37,17 @@ def get_logger(level,is_server=True):
 def is_positive_float(element):
     """
     This function checks whether string input can be treated as a positive float.
-    :param element: Some string input
+    :param element: The function was written with string input, but it can be used on anything
     :return: Flag that answers if element can be treated as a positive float.
     """
-    if element is None:
+    if element is None: #Check if None
         return False
     try:
         new_element=float(element)
         if new_element>0: return True
         else: return False
-    except ValueError:
-        return False
+    except ValueError: return False #It is not possible to convert element to float
+
 
 def can_use_unix_socket(path):
     """
@@ -83,17 +83,16 @@ def can_use_unix_socket(path):
             else:
                 return False  # Some other file exists there
 
-        # All good
         return True
 
-    except Exception:
-        return False
+    #If there is anything wrong with the path (I cant even imagine what is sent here) just raise an exception
+    except Exception: return False
 
 def test_inputs(args,is_server=True):
     """
     This function checks whether input arguments from CLI are valid. If they are not, they are replaced with the default
     input arguments.
-    :param args: Arguments from CLI.
+    :param args: Object with properties being arguments from CLI.
     :param is_server: Flag if server is used. Otherwise, client is used.
     :return: None
     """
@@ -106,12 +105,12 @@ def test_inputs(args,is_server=True):
         except PermissionError: raise PermissionError("You do not have permission to use this path. Please, specify different path.")
         except OSError:
             if os.path.exists(args.socket_path):
-                raise OSError("The chose path is used be a different software (maybe anther socket). Please, specify different path.")
+                raise OSError("The chosen path is used by a different software (maybe another socket). Please, specify different path.")
     if args.log_level is None:
         args.log_level='INFO'
     if not args.log_level in ['INFO', 'DEBUG', 'NOTSET', 'ERROR', 'CRITICAL', 'WARNING']: # Current Logger is very simple but it is a good base
-        #More logs could be added in the future depending on the requirments and what we want to test
-        print("Invalid log level. Log level set to INFO")
+        #More logs could be added in the future depending on the requirements and what we want to test
+        print("Invalid log level. Log level is set to INFO")
         args.log_level='INFO'
     if is_server:
         if not is_positive_float(args.frequency_hz):
@@ -123,7 +122,7 @@ def test_inputs(args,is_server=True):
     else:
         if not is_positive_float(args.timeout_ms):
             if args.timeout_ms is not None:
-                print('You have incorrect timeout. timeout is set to 500 Hz')
+                print('You have incorrect timeout. timeout is set to 100 ms')
             args.timeout_ms=100
         else:
             args.timeout_ms=float(args.timeout_ms)
@@ -132,7 +131,7 @@ def get_args_from_cli(is_server=True):
     """
     This function gets arguments from CLI.
     :param is_server: If true, server is used. Otherwise, client is used.
-    :return: Object created by parser
+    :return: Object with properties being arguments from CLI.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("--socket-path", help="Path used for communicating between sockets.")

@@ -1,5 +1,6 @@
 import numpy as np
 from copy import copy
+import math
 
 MODEL_VARIANCE_MATRIX=np.diag([5,0.1]) #System variance aka Q matrix in Kalman filter
 SENSOR_VARIANCE_MATRIX=np.diag([10,1]) #Sensor variance aka R matrix in Kalman filter
@@ -68,9 +69,16 @@ def get_euler_angles_from_accelerometer(accelerometer_msg,rot_system):
     """
     #https://www.nxp.com/docs/en/application-note/AN3461.pdf
     if rot_system == 'XYZ':
-        roll=np.arctan(accelerometer_msg['yAcc']/accelerometer_msg['zAcc'])
-        pitch=np.arctan(-accelerometer_msg['xAcc']/np.sqrt(accelerometer_msg['yAcc']**2+accelerometer_msg['zAcc']**2))
+        # There are at least 2 solutions (tan function returns two possible solution between -180 to 180 degrees). We restrict pitch to be between -90 to 90 degrees
+    	pitch=np.arctan(-accelerometer_msg['xAcc']/np.sqrt(accelerometer_msg['yAcc']**2+accelerometer_msg['zAcc']**2))
+        roll=np.arctan(accelerometer_msg['yAcc']/accelerometer_msg['zAcc'])# Returns solution between -90 to 90 degreees
+        # Check If roll between -90 to 90 degreees is correct. Otherwise, choose a different solution of tan function
+        # cos(roll) is always positive (we restrict it to be between -90 and 90 degrees but it is not equal because there is a system to prevent the lock)
+        if not math.copysign(1,roll)==math.copysign(1,accelerometer_msg['yAcc']):
+            if roll<0: roll=roll+np.pi
+            else: roll=roll+np.pi
     elif rot_system == 'YXZ':
+        # There are at least 2 solutions. We restrict roll to be between -90 to 90 degrees
         roll=np.arctan(accelerometer_msg['yAcc']/np.sqrt(accelerometer_msg['xAcc']**2+accelerometer_msg['zAcc']**2))
         pitch = np.arctan(-accelerometer_msg['xAcc'] / accelerometer_msg['zAcc'])
     else: raise Exception('Unknown system') #This software supports only 'XYZ' and 'YXZ'. Accelerometer gives data only

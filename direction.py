@@ -70,7 +70,7 @@ def get_euler_angles_from_accelerometer(accelerometer_msg,rot_system):
     #https://www.nxp.com/docs/en/application-note/AN3461.pdf
     if rot_system == 'XYZ':
         # There are at least 2 solutions (tan function returns two possible solution between -180 to 180 degrees). We restrict pitch to be between -90 to 90 degrees
-    	pitch=np.arctan(-accelerometer_msg['xAcc']/np.sqrt(accelerometer_msg['yAcc']**2+accelerometer_msg['zAcc']**2))
+        pitch=np.arctan(-accelerometer_msg['xAcc']/np.sqrt(accelerometer_msg['yAcc']**2+accelerometer_msg['zAcc']**2))
         roll=np.arctan(accelerometer_msg['yAcc']/accelerometer_msg['zAcc'])# Returns solution between -90 to 90 degreees
         # Check If roll between -90 to 90 degreees is correct. Otherwise, choose a different solution of tan function
         # cos(roll) is always positive (we restrict it to be between -90 and 90 degrees but it is not equal because there is a system to prevent the lock)

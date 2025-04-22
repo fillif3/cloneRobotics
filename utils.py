@@ -98,7 +98,7 @@ def test_inputs(args,is_server=True):
     """
     if args.socket_path is None: args.socket_path='/tmp/my_socket'
     if not can_use_unix_socket(args.socket_path):
-        print('The chosen path is not a directory. "/tmp/my_socket" will be used instead')
+        print('The chosen path is not a legal directory for a socket. "/tmp/my_socket" will be used instead')
         args.socket_path='/tmp/my_socket'
     if is_server:
         try: os.unlink(args.socket_path)
@@ -140,4 +140,5 @@ def get_args_from_cli(is_server=True):
     'ERROR'->(40), 'CRITICAL'->(50)""")
     if is_server:parser.add_argument("--frequency-hz", help="Frequency that shows how often will the massages be sent.")
     else:parser.add_argument("--timeout-ms", help="""This variable specifies how long client should wait before timeout""")
-    return parser.parse_args()
+    args, _ = parser.parse_known_args()
+    return args

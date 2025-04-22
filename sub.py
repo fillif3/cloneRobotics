@@ -11,7 +11,6 @@ def run_client():
 
     #Get args from CLI
     args = utils.get_args_from_cli(is_server=False)
-
     utils.test_inputs(args,is_server=False)
     client.settimeout(args.timeout_ms/1000)
     # Create logger to log important information

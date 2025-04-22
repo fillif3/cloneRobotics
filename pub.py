@@ -45,6 +45,13 @@ def main():
             except BrokenPipeError: #Client diconnected
                 client=None
                 logger.warning('Client disconnected.')
+            except (ConnectionRefusedError,ConnectionResetError):
+                client=None
+                logger.error('Connection error.')
+            except Exception as e:
+                client=None
+                logger.error('Unexpected error: %s.',e)
+
             # Log a msg
             if (file_curr_time+time_increment_file)<time.time():
                 logger.info("Connection:"+str(client is not None)+";MSG:"+str(measure_arr)+'Time:'+str(time.time())+'\n')

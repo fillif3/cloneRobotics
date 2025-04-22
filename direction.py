@@ -81,6 +81,9 @@ def get_euler_angles_from_accelerometer(accelerometer_msg,rot_system):
         # There are at least 2 solutions. We restrict roll to be between -90 to 90 degrees
         roll=np.arctan(accelerometer_msg['yAcc']/np.sqrt(accelerometer_msg['xAcc']**2+accelerometer_msg['zAcc']**2))
         pitch = np.arctan(-accelerometer_msg['xAcc'] / accelerometer_msg['zAcc'])
+        if math.copysign(1,pitch)==math.copysign(1,accelerometer_msg['xAcc']):
+            if pitch<0: pitch=pitch+np.pi
+            else: pitch=pitch-np.pi
     else: raise Exception('Unknown system') #This software supports only 'XYZ' and 'YXZ'. Accelerometer gives data only
     # for these values
     return roll,pitch

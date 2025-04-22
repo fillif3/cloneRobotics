@@ -33,6 +33,9 @@ def run_client():
         except EOFError:
             logger.error("Error receiving data")
             break
+        except pickle.UnpicklingError:
+            logger.warning("There was an error unpickling data. The message is ignored")
+            continue
         if euler_angles is None:
             # Create euler angles if this is first iteration
             euler_angles,angles_rates,euler_angles_variance,current_system=direction.initialize_euler_angles(measure_arr)
